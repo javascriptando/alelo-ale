@@ -1,0 +1,9 @@
+node_modules
+dist
+.next
+.env
+.env.local
+*.key
+docusign_private.key
+whatsapp-qr.png
+.DS_Store

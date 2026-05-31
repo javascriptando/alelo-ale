@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.wa-session
+*.key
+docusign_private.key
+drizzle/meta
+.DS_Store

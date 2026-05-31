@@ -1,0 +1,17 @@
+[07:55:49] [32mINFO[39m (22852): [36mIniciando Alelo WhatsApp Platform…[39m
+[07:55:50] [31mERROR[39m (22852): [36mFatal na inicialização[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:3333",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:3333
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+      "code": "EADDRINUSE",
+      "errno": -4091,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 3333
+    }

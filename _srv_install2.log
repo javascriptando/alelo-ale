@@ -1,0 +1,4 @@
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+
+added 34 packages in 9s
+exit=0

@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+/* ── Alelo brand design tokens ──────────────────────────────
+   Official colors (from the Alelo logo SVG + design system):
+   - #007858  deep green   (primary)
+   - #00A859  vivid green   (secondary / success)
+   - #C7D540  lime accent   (highlights, banners)
+   Light, airy theme with white cards and soft shadows. */
+@theme {
+  --color-alelo: #007858;
+  --color-alelo-dark: #00603f;
+  --color-alelo-bright: #00a859;
+  --color-alelo-lime: #c7d540;
+  --color-alelo-lime-soft: #eef3c9;
+  --color-alelo-mint: #e6f4ee;
+
+  --color-canvas: #eaf3ee;
+  --color-surface: #ffffff;
+  --color-ink: #14241d;
+  --color-ink-soft: #5b6b63;
+  --color-line: #e4e9e4;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle scrollbars that fit the light theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cdd6cf transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cdd6cf;
+  border-radius: 999px;
+}
+
+/* Brand gradient used on the login hero / banners */
+.alelo-gradient {
+  background: linear-gradient(135deg, #007858 0%, #00a859 55%, #c7d540 130%);
+}

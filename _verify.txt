@@ -1,0 +1,48 @@
+### DEPS ###
+ok  @node-rs/argon2
+ok  docusign-esign
+ok  @fastify/cookie
+ok  @oslojs/crypto
+ok  @oslojs/encoding
+
+### SERVER TSC ###
+src/http/server.ts(34,22): error TS2345: Argument of type 'FastifyInstance<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, never, FastifyTypeProviderDefault> & PromiseLike<...> & { ...; }' is not assignable to parameter of type 'FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>'.
+  The types of 'withTypeProvider().route' are incompatible between these types.
+    Type '<RouteGeneric extends RouteGenericInterface = RouteGenericInterface, ContextConfig = unknown, const SchemaCompiler extends FastifySchema = FastifySchema>(opts: RouteOptions<Server<typeof IncomingMessage, typeof ServerResponse>, ... 6 more ..., never>) => FastifyInstance<...>' is not assignable to type '<RouteGeneric extends RouteGenericInterface = RouteGenericInterface, ContextConfig = unknown, const SchemaCompiler extends FastifySchema = FastifySchema>(opts: RouteOptions<RawServerDefault, IncomingMessage, ... 5 more ..., FastifyBaseLogger>) => FastifyInstance<...>'.
+      Types of parameters 'opts' and 'opts' are incompatible.
+        Type 'RouteOptions<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, any, any, any, any, FastifyBaseLogger>' is not assignable to type 'RouteOptions<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, ... 4 more ..., never>'.
+          Types of property 'childLoggerFactory' are incompatible.
+            Type 'FastifyChildLoggerFactory<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, any> | undefined' is not assignable to type 'FastifyChildLoggerFactory<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, never, any> | undefined'.
+              Type 'FastifyChildLoggerFactory<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, any>' is not assignable to type 'FastifyChildLoggerFactory<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, never, any>'.
+                Type 'FastifyBaseLogger' is not assignable to type 'never'.
+src/integrations/docusign.ts(2,22): error TS7016: Could not find a declaration file for module 'docusign-esign'. 'C:/Users/tcsde/projects/alelo/server/node_modules/docusign-esign/src/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/docusign-esign` if it exists or add a new declaration (.d.ts) file containing `declare module 'docusign-esign';`
+server_tsc_exit=2
+
+### WEB TSC ###
+web_tsc_exit=0
+
+### SERVER BOOT ###
+health={"ok":true,"whatsapp":false}
+me_unauth_http=404 (espera 401)
+login_bad_http=404 (espera 401 ou 500-se-sem-db)
+
+### BOOT LOG HEAD ###
+[07:55:49] [32mINFO[39m (22852): [36mIniciando Alelo WhatsApp Platform…[39m
+[07:55:50] [31mERROR[39m (22852): [36mFatal na inicialização[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:3333",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:3333
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+      "code": "EADDRINUSE",
+      "errno": -4091,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 3333
+    }
+===DONE===
