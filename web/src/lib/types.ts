@@ -125,6 +125,8 @@ export interface Payment {
   asaasPaymentId: string
   status: string
   value: string
+  /** Real contracted amount (shown even when dev mode charges a token value). */
+  fullValue?: string | null
   description: string | null
   paidAt: string | null
   expiresAt: string | null

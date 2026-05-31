@@ -576,6 +576,56 @@ export async function buildServer(gateway: WhatsAppGateway) {
     return { ok: true }
   })
 
+  // ── Beneficiaries (associados): manage individually from the panel ────
+  // Add one associate manually.
+  app.post('/api/clients/:id/beneficiaries', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const body = z
+      .object({
+        name: z.string().min(1),
+        cpf: z.string().optional(),
+        benefitType: z.enum(['refeicao', 'alimentacao', 'mobilidade', 'multibeneficios']).optional(),
+      })
+      .parse(req.body)
+    const [row] = await db
+      .insert(beneficiaries)
+      .values({
+        clientId: id,
+        name: body.name.trim(),
+        cpf: body.cpf ? body.cpf.replace(/\D/g, '') : null,
+        benefitType: body.benefitType ?? 'refeicao',
+      })
+      .returning()
+    return reply.send({ ok: true, beneficiary: row })
+  })
+
+  // Edit an associate (name, cpf, benefit type).
+  app.patch('/api/clients/:id/beneficiaries/:bid', async (req, reply) => {
+    const { bid } = req.params as { id: string; bid: string }
+    const body = z
+      .object({
+        name: z.string().min(1).optional(),
+        cpf: z.string().optional(),
+        benefitType: z.enum(['refeicao', 'alimentacao', 'mobilidade', 'multibeneficios']).optional(),
+        active: z.boolean().optional(),
+      })
+      .parse(req.body)
+    const patch: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.name !== undefined) patch.name = body.name.trim()
+    if (body.cpf !== undefined) patch.cpf = body.cpf ? body.cpf.replace(/\D/g, '') : null
+    if (body.benefitType !== undefined) patch.benefitType = body.benefitType
+    if (body.active !== undefined) patch.active = body.active
+    await db.update(beneficiaries).set(patch).where(eq(beneficiaries.id, bid))
+    return reply.send({ ok: true })
+  })
+
+  // Remove an associate permanently.
+  app.delete('/api/clients/:id/beneficiaries/:bid', async (req, reply) => {
+    const { bid } = req.params as { id: string; bid: string }
+    await db.delete(beneficiaries).where(eq(beneficiaries.id, bid))
+    return reply.send({ ok: true })
+  })
+
   // Operator/admin acts on behalf of the client — same powers as the Alê
   // (reuses the AI tool executors so behavior is identical to the bot).
   app.post('/api/clients/:id/action', async (req, reply) => {
@@ -655,7 +705,9 @@ export async function buildServer(gateway: WhatsAppGateway) {
     const isAdmin = req.operator?.role === 'admin'
     const meId = req.operator?.id ?? ''
     const now = new Date()
-    const since7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    // Period is selectable from the dashboard UI (?days=7|30|90). Clamp 1..180.
+    const daysRaw = Number((req.query as { days?: string }).days)
+    const days = Number.isFinite(daysRaw) ? Math.min(180, Math.max(1, Math.trunc(daysRaw))) : 7
 
     const [
       [clientCount],
@@ -730,8 +782,8 @@ export async function buildServer(gateway: WhatsAppGateway) {
           n: sql<number>`count(*)::int`,
         })
         .from(messages)
-        // Widen the filter to 8 days so the tz shift can never trim today.
-        .where(sql`${messages.createdAt} >= ${new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString()}`)
+        // Widen the filter by 1 extra day so the tz shift can never trim today.
+        .where(sql`${messages.createdAt} >= ${new Date(now.getTime() - (days + 1) * 24 * 60 * 60 * 1000).toISOString()}`)
         .groupBy(sql`date_trunc('day', ${messages.createdAt} AT TIME ZONE 'America/Sao_Paulo')`),
     ])
 
@@ -742,7 +794,7 @@ export async function buildServer(gateway: WhatsAppGateway) {
       volumeRows.map((r) => [r.day, { ai: r.ai, human: r.human, client: r.client, n: r.n }]),
     )
     const volume: { day: string; n: number; ai: number; human: number; client: number }[] = []
-    for (let i = 6; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const key = brDay(new Date(now.getTime() - i * 24 * 60 * 60 * 1000))
       const v = volMap[key] ?? { ai: 0, human: 0, client: 0, n: 0 }
       volume.push({ day: key, n: v.n, ai: v.ai, human: v.human, client: v.client })

@@ -57,6 +57,14 @@ export async function createAndSendPix(
   }
   if (!value || value <= 0) return { ok: false, message: 'Sem valor para cobrar (faça uma cotação).' }
 
+  // Asaas requires a CPF/CNPJ to issue any charge. Catch it here with a clear,
+  // actionable message instead of letting the API 400 surface as a generic
+  // "não consegui gerar o PIX". In the normal flow the CNPJ is collected at the
+  // contract step, so this only trips when PIX is requested out of order.
+  if (!client.cnpj || client.cnpj.replace(/\D/g, '').length < 11) {
+    return { ok: false, message: 'Antes do pagamento preciso do CNPJ da empresa. Pode me informar?' }
+  }
+
   const description = opts.description?.trim() || `Benefício Alelo - ${client.companyName}`
   let charge
   try {
@@ -81,6 +89,7 @@ export async function createAndSendPix(
     asaasPaymentId: charge.id,
     status: charge.status,
     value: String(charge.value),
+    fullValue: String(charge.requestedValue), // real contracted amount
     description,
     copyPaste: charge.pixCopyPaste,
     invoiceUrl: charge.invoiceUrl,
@@ -91,7 +100,7 @@ export async function createAndSendPix(
     await notifyImage(
       clientId,
       charge.pixQrCodeBase64,
-      `*Pagamento PIX - ${brl(charge.value)}*\nEscaneie o QR Code acima ou use o código abaixo.`,
+      `*Pagamento PIX - ${brl(charge.requestedValue)}*\nEscaneie o QR Code acima ou use o código abaixo.`,
     )
     await notifyText(clientId, charge.pixCopyPaste)
     await notifyText(

@@ -201,7 +201,11 @@ export const pixCharges = pgTable('pix_charges', {
   // set when the charge belongs to a recurring subscription
   subscriptionId: uuid('subscription_id'),
   status: text('status').notNull().default('PENDING'), // PENDING | RECEIVED | CONFIRMED | OVERDUE ...
+  // value = amount actually CHARGED (dev mode charges a fixed token value).
   value: numeric('value', { precision: 14, scale: 2 }).notNull(),
+  // fullValue = real contracted amount, shown in UI/messages even when dev mode
+  // charges a fixed value. Falls back to `value` when null.
+  fullValue: numeric('full_value', { precision: 14, scale: 2 }),
   description: text('description'),
   copyPaste: text('copy_paste'), // PIX "copia e cola"
   invoiceUrl: text('invoice_url'),

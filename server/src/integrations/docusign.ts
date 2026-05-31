@@ -258,25 +258,11 @@ export async function sendContractForSignature(req: SignRequest): Promise<SignRe
   })
 
   logger.info({ envelopeId }, 'DocuSign envelope criado')
-  // Shorten the (very long) embedded signing URL so it's friendly on WhatsApp.
-  return { envelopeId, signingUrl: await shortenUrl(view.url as string) }
-}
-
-/**
- * Shorten a long URL (e.g. the DocuSign signing link) via is.gd. Falls back to
- * the original URL on any failure — never blocks the flow.
- */
-export async function shortenUrl(url: string): Promise<string> {
-  try {
-    const r = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`)
-    if (r.ok) {
-      const s = (await r.text()).trim()
-      if (s.startsWith('http')) return s
-    }
-  } catch {
-    /* keep original */
-  }
-  return url
+  // Return the RAW signing URL. Do NOT shorten it: the embedded recipient-view
+  // link carries a single-use token (MTRedeem) and a shortener (is.gd) fetches
+  // the target to validate it, CONSUMING the token → the signer then gets
+  // "Invalid Managed Token ID and / or secret". Send it raw.
+  return { envelopeId, signingUrl: view.url as string }
 }
 
 /**

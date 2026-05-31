@@ -1,9 +1,11 @@
 node_modules
-dist
 .next
-.env
-.env.local
-*.key
-docusign_private.key
-whatsapp-qr.png
+dist
+*.log
+*.swp
 .DS_Store
+
+# scratch / temp work (not part of the project)
+scratch/
+
+# NOTE: server/.env and web/.env.local are intentionally committed (private repo).

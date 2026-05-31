@@ -11,6 +11,12 @@ export type RealtimeEvent =
   | { type: 'quote.created'; quoteId: string; clientId: string; monthlyTotal: number }
 
 class RealtimeBus extends EventEmitter {
+  constructor() {
+    super()
+    // Each operator WebSocket tab adds a listener; raise the cap so several
+    // open tabs don't trip a false "memory leak" warning (unsub on close).
+    this.setMaxListeners(100)
+  }
   emitEvent(e: RealtimeEvent) {
     this.emit('event', e)
   }

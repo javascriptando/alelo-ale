@@ -6,7 +6,7 @@ import { logger } from '../config/logger.js'
 import { jidToPhone, type InboundHandler, type WhatsAppGateway } from './gateway.js'
 import { toWhatsApp } from './format.js'
 import { transcribeAudio } from '../ai/openai.js'
-import { isElevenLabsConfigured, isSpeakable, textToSpeechBase64 } from '../integrations/elevenlabs.js'
+import { isElevenLabsConfigured, splitForDelivery, textToSpeechBase64 } from '../integrations/elevenlabs.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -346,20 +346,34 @@ export class EvolutionGateway implements WhatsAppGateway {
 
   async sendText(phone: string, text: string): Promise<void> {
     const number = phone.replace(/\D/g, '')
-    // Voice-first: speak natural-language replies (codes/links stay as text).
-    if (isElevenLabsConfigured() && isSpeakable(text)) {
-      const audio = await textToSpeechBase64(text).catch(() => null)
-      if (audio) {
-        await this.sendAudioNote(number, audio)
+
+    // Voice-first, but MIXED: split the reply so data/figures/links go as text
+    // and the conversational sentences go as audio — each part in order. A
+    // cotação's numbers are read; "Quer seguir para a assinatura?" is spoken.
+    if (isElevenLabsConfigured()) {
+      const segments = splitForDelivery(text)
+      const hasAudio = segments.some((s) => s.kind === 'audio')
+      if (hasAudio && segments.length > 0) {
+        for (const seg of segments) {
+          if (seg.kind === 'audio') {
+            const audio = await textToSpeechBase64(seg.content).catch(() => null)
+            if (audio) await this.sendAudioNote(number, audio)
+            else await this.sendPlainText(number, seg.content) // TTS down → text
+          } else {
+            await this.sendPlainText(number, seg.content)
+          }
+        }
         return
       }
-      // TTS failed → fall through to text so the message is never lost.
+      // No speakable part (pure data) → fall through to a single text message.
     }
+    await this.sendPlainText(number, text)
+  }
+
+  /** Send a plain WhatsApp text (with markdown→wa conversion + typing). */
+  private async sendPlainText(number: string, text: string): Promise<void> {
     const body = toWhatsApp(text)
-    // Human touch: show "typing…" for a short, length-proportional time before
-    // the message lands, so the bot doesn't feel instant/robotic.
     await this.showTyping(number, body)
-    // Single chokepoint: convert markdown → WhatsApp formatting for all outbound.
     await this.call(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
       method: 'POST',
       body: JSON.stringify({ number, text: body }),

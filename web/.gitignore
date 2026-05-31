@@ -1,0 +1,21 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist
+
+# misc
+*.swp
+.DS_Store
+
+# scratch / temp (not part of the app)
+/tmp/
+SCRATCHPAD.md
+SCRATCH_NPS.md
+
+# NOTE: .env / .env.local are intentionally committed (private repo).

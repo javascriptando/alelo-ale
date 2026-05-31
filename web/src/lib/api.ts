@@ -31,6 +31,23 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function patchReq<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function delReq<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE', credentials: 'include' })
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`)
+  return res.json() as Promise<T>
+}
+
 export interface AuthUser {
   id: string
   name: string
@@ -44,7 +61,7 @@ export const api = {
   logout: () => post('/api/auth/logout', {}),
   me: () => get<AuthUser>('/api/auth/me'),
   stats: () => get<Stats>('/api/stats'),
-  dashboard: () => get<Dashboard>('/api/dashboard'),
+  dashboard: (days?: number) => get<Dashboard>(`/api/dashboard${days ? `?days=${days}` : ''}`),
   nps: () => get<Nps>('/api/nps'),
   conversations: () => get<Conversation[]>('/api/conversations'),
   messages: (id: string) => get<Message[]>(`/api/conversations/${id}/messages`),
@@ -76,6 +93,15 @@ export const api = {
     post(`/api/clients/${id}/assign`, { operatorId }),
   clientAction: (id: string, tool: string, args: Record<string, unknown>) =>
     post<{ ok: boolean; message: string; data?: unknown }>(`/api/clients/${id}/action`, { tool, args }),
+  addBeneficiary: (id: string, b: { name: string; cpf?: string; benefitType?: string }) =>
+    post<{ ok: boolean }>(`/api/clients/${id}/beneficiaries`, b),
+  updateBeneficiary: (
+    id: string,
+    bid: string,
+    patch: { name?: string; cpf?: string; benefitType?: string; active?: boolean },
+  ) => patchReq<{ ok: boolean }>(`/api/clients/${id}/beneficiaries/${bid}`, patch),
+  deleteBeneficiary: (id: string, bid: string) =>
+    delReq<{ ok: boolean }>(`/api/clients/${id}/beneficiaries/${bid}`),
   operators: () => get<Operator[]>('/api/operators'),
   whatsappStatus: () =>
     get<{ ready: boolean; qr: string | null; canManage: boolean }>('/api/whatsapp/status'),

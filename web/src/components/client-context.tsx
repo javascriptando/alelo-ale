@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import type { Client360 } from '@/lib/types'
-import { Badge } from './ui'
+import { Badge, ticketRef } from './ui'
 
 const brl = (v: string | number | null) => {
   const n = typeof v === 'string' ? Number(v) : (v ?? 0)
@@ -159,7 +159,7 @@ export function ClientContext({
                       className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs"
                     >
                       <span className="flex flex-col">
-                        <span className="font-semibold text-ink">{brl(p.value)}</span>
+                        <span className="font-semibold text-ink">{brl(p.fullValue ?? p.value)}</span>
                         <span className="text-[10px] text-ink-soft">{when}</span>
                       </span>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
@@ -230,35 +230,17 @@ export function ClientContext({
         </div>
       )}
 
-      {/* ASSOCIADOS */}
+      {/* ASSOCIADOS — gerenciar individualmente (editar, excluir, adicionar) */}
       {tab === 'beneficiarios' && (
-        <section>
-          <H>Associados ao benefício ({beneficiaries.length})</H>
-          {beneficiaries.length === 0 ? (
-            <Empty>Nenhum colaborador cadastrado ainda.</Empty>
-          ) : (
-            <ul
-              className={
-                full
-                  ? 'grid max-h-[34rem] grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3'
-                  : 'max-h-[28rem] space-y-1 overflow-y-auto'
-              }
-            >
-              {beneficiaries.map((b) => (
-                <li
-                  key={b.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs"
-                >
-                  <span className="truncate text-ink">{b.name}</span>
-                  <span className="flex shrink-0 items-center gap-2 text-ink-soft">
-                    {b.cpf && <span className="tabular-nums">{b.cpf}</span>}
-                    <span>{BENEFIT_LABEL[b.benefitType] ?? b.benefitType}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <BeneficiariesManager
+          clientId={clientId}
+          beneficiaries={beneficiaries}
+          full={full}
+          onChange={() => {
+            load()
+            onChange?.()
+          }}
+        />
       )}
 
       {/* HISTÓRICO */}
@@ -274,7 +256,10 @@ export function ClientContext({
                   key={t.id}
                   className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2 text-xs"
                 >
-                  <span className="min-w-0 truncate text-ink-soft">{t.subject}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="font-mono text-[10px] text-alelo">{ticketRef(t.id)}</span>
+                    <span className="min-w-0 truncate text-ink-soft">{t.subject}</span>
+                  </span>
                   <Badge value={t.status} />
                 </li>
               ))}
@@ -408,5 +393,202 @@ function ActionBtn({
     >
       {busy ? 'Executando…' : children}
     </button>
+  )
+}
+
+const BENEFIT_OPTS = [
+  { v: 'refeicao', l: 'Refeição' },
+  { v: 'alimentacao', l: 'Alimentação' },
+  { v: 'mobilidade', l: 'Mobilidade' },
+  { v: 'multibeneficios', l: 'Multibenefícios' },
+]
+
+/** Manage associates one-by-one: search, add, inline edit, delete. */
+function BeneficiariesManager({
+  clientId,
+  beneficiaries,
+  full,
+  onChange,
+}: {
+  clientId: string
+  beneficiaries: Client360['beneficiaries']
+  full: boolean
+  onChange: () => void
+}) {
+  const [q, setQ] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState<{ name: string; cpf: string; benefitType: string }>({
+    name: '',
+    cpf: '',
+    benefitType: 'refeicao',
+  })
+  const [adding, setAdding] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const filtered = beneficiaries.filter((b) => {
+    const s = q.trim().toLowerCase()
+    if (!s) return true
+    return b.name.toLowerCase().includes(s) || (b.cpf ?? '').includes(s.replace(/\D/g, ''))
+  })
+
+  const startEdit = (b: Client360['beneficiaries'][number]) => {
+    setEditing(b.id)
+    setDraft({ name: b.name, cpf: b.cpf ?? '', benefitType: b.benefitType })
+    setAdding(false)
+  }
+  const save = async (bid: string) => {
+    if (!draft.name.trim()) return
+    setBusy(true)
+    try {
+      await api.updateBeneficiary(clientId, bid, draft)
+      setEditing(null)
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const create = async () => {
+    if (!draft.name.trim()) return
+    setBusy(true)
+    try {
+      await api.addBeneficiary(clientId, draft)
+      setAdding(false)
+      setDraft({ name: '', cpf: '', benefitType: 'refeicao' })
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const remove = async (bid: string, name: string) => {
+    if (!confirm(`Excluir o associado "${name}"? Esta ação é permanente.`)) return
+    setBusy(true)
+    try {
+      await api.deleteBeneficiary(clientId, bid)
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const fields = (onSave: () => void, onCancel: () => void) => (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-alelo/40 bg-surface p-2">
+      <input
+        autoFocus
+        value={draft.name}
+        onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+        placeholder="Nome completo"
+        className="rounded-md border border-line bg-canvas px-2 py-1.5 text-xs outline-none focus:border-alelo"
+      />
+      <div className="flex gap-1.5">
+        <input
+          value={draft.cpf}
+          onChange={(e) => setDraft((d) => ({ ...d, cpf: e.target.value }))}
+          placeholder="CPF"
+          className="w-1/2 rounded-md border border-line bg-canvas px-2 py-1.5 text-xs tabular-nums outline-none focus:border-alelo"
+        />
+        <select
+          value={draft.benefitType}
+          onChange={(e) => setDraft((d) => ({ ...d, benefitType: e.target.value }))}
+          className="w-1/2 rounded-md border border-line bg-canvas px-2 py-1.5 text-xs outline-none focus:border-alelo"
+        >
+          {BENEFIT_OPTS.map((o) => (
+            <option key={o.v} value={o.v}>
+              {o.l}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-1.5">
+        <button
+          onClick={onSave}
+          disabled={busy || !draft.name.trim()}
+          className="flex-1 rounded-md bg-alelo px-2 py-1.5 text-xs font-semibold text-white hover:bg-alelo-dark disabled:opacity-40"
+        >
+          Salvar
+        </button>
+        <button
+          onClick={onCancel}
+          className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-canvas"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <H>Associados ({beneficiaries.length})</H>
+        <button
+          onClick={() => {
+            setAdding(true)
+            setEditing(null)
+            setDraft({ name: '', cpf: '', benefitType: 'refeicao' })
+          }}
+          className="rounded-lg bg-alelo px-2.5 py-1 text-xs font-semibold text-white hover:bg-alelo-dark"
+        >
+          + Adicionar
+        </button>
+      </div>
+
+      {beneficiaries.length > 6 && (
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por nome ou CPF…"
+          className="mb-2 w-full rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs outline-none focus:border-alelo"
+        />
+      )}
+
+      {adding && <div className="mb-2">{fields(create, () => setAdding(false))}</div>}
+
+      {beneficiaries.length === 0 && !adding ? (
+        <Empty>Nenhum colaborador cadastrado ainda.</Empty>
+      ) : (
+        <ul
+          className={
+            full
+              ? 'grid max-h-[34rem] grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3'
+              : 'max-h-[28rem] space-y-1.5 overflow-y-auto'
+          }
+        >
+          {filtered.map((b) =>
+            editing === b.id ? (
+              <li key={b.id}>{fields(() => save(b.id), () => setEditing(null))}</li>
+            ) : (
+              <li
+                key={b.id}
+                className="group flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs"
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate text-ink">{b.name}</span>
+                  <span className="flex items-center gap-2 text-[10px] text-ink-soft">
+                    {b.cpf && <span className="tabular-nums">{b.cpf}</span>}
+                    <span>{BENEFIT_LABEL[b.benefitType] ?? b.benefitType}</span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                  <button
+                    onClick={() => startEdit(b)}
+                    className="rounded-md px-1.5 py-1 text-[11px] font-semibold text-alelo hover:bg-alelo-mint"
+                    title="Editar"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => remove(b.id, b.name)}
+                    className="rounded-md px-1.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50"
+                    title="Excluir"
+                  >
+                    Excluir
+                  </button>
+                </span>
+              </li>
+            ),
+          )}
+        </ul>
+      )}
+    </section>
   )
 }

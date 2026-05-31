@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import type { Operator, TicketDetail } from '@/lib/types'
-import { Badge } from '@/components/ui'
+import { Badge, ticketRef } from '@/components/ui'
 import { SuggestionsPanel } from '@/components/suggestions-panel'
 import { ClientContext } from '@/components/client-context'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -81,7 +81,12 @@ export default function TicketDetailPage() {
           <Link href="/tickets" className="text-xs font-semibold text-ink-soft hover:text-alelo">
             ← Tickets
           </Link>
-          <h1 className="truncate text-lg font-bold text-ink">{ticket.subject}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-lg font-bold text-ink">{ticket.subject}</h1>
+            <span className="shrink-0 rounded-md bg-alelo-mint px-2 py-0.5 font-mono text-[11px] font-semibold text-alelo-dark">
+              {ticketRef(ticket.id)}
+            </span>
+          </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-ink-soft">
             <span>{client?.companyName}</span>
             <span>·</span>

@@ -26,7 +26,7 @@ import { onlyDigits } from '../domain/validation.js'
 import { createAndSendPix, reconcileClientCharges } from '../domain/payment-service.js'
 import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
-import { isDocusignConfigured, sendContractForSignature, shortenUrl } from '../integrations/docusign.js'
+import { isDocusignConfigured, sendContractForSignature } from '../integrations/docusign.js'
 import {
   activeTicketForConversation,
   classify,
@@ -138,7 +138,7 @@ export const toolSchemas: ChatCompletionTool[] = [
     function: {
       name: 'escalar_humano',
       description:
-        'Escala a conversa para um operador humano da Alelo. Use quando o pedido for complexo, sensível, fora do escopo, ou quando o cliente pedir um atendente. ANTES de escalar, procure captar o essencial do que o cliente quer para preencher o resumo (summary), assim o atendente já começa informado.',
+        'Escala a conversa para um operador humano da Alelo. Use quando o pedido for complexo, sensível, fora do escopo, ou quando o cliente pedir um atendente. TRIAGEM OBRIGATÓRIA: NUNCA escale na primeira mensagem nem sem antes fazer a triagem. Primeiro faça 1-3 perguntas para entender (a) exatamente qual é o problema/pedido, (b) o contexto (empresa, o que já tentou, desde quando, nº do pedido se houver). SÓ chame esta ferramenta depois de ter essas respostas, preenchendo um summary rico. Se o cliente apenas reclamou ou pediu humano sem dar detalhes, PERGUNTE primeiro — não escale ainda.',
       parameters: {
         type: 'object',
         properties: {
@@ -146,7 +146,17 @@ export const toolSchemas: ChatCompletionTool[] = [
           summary: {
             type: 'string',
             description:
-              'Resumo do que o cliente precisa, com os dados já coletados (empresa, contexto, o que tentou), para o atendente humano começar informado.',
+              'Resumo da TRIAGEM já feita: o que o cliente precisa, contexto coletado (empresa, o que tentou, desde quando, nº de pedido/CNPJ), para o atendente humano começar informado. Deve refletir respostas reais do cliente, não suposições.',
+          },
+          triageDone: {
+            type: 'boolean',
+            description:
+              'true SOMENTE se você já fez perguntas de triagem e o cliente respondeu, e o summary reflete essas respostas. false se ainda não coletou informação.',
+          },
+          customerInsisted: {
+            type: 'boolean',
+            description:
+              'true se o cliente EXPLICITAMENTE insistiu em falar com humano agora (mesmo após você oferecer ajuda) ou está claramente irritado e não quer responder triagem. Permite escalar mesmo sem triagem completa.',
           },
           priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
         },
@@ -523,7 +533,24 @@ export const toolExecutors: Record<
 
   async escalar_humano(args, ctx) {
     const reason = String(args.reason ?? 'Solicitação do cliente')
-    const summary = typeof args.summary === 'string' ? args.summary : reason
+    const summaryRaw = typeof args.summary === 'string' ? args.summary.trim() : ''
+    const summary = summaryRaw || reason
+    const triageDone = args.triageDone === true
+    const customerInsisted = args.customerInsisted === true
+
+    // TRIAGE GATE: don't hand a blank ticket to a human. Require a real summary
+    // built from triage questions, UNLESS the customer explicitly insisted on a
+    // human now. Stops the "escalou sem coletar nada antes" the operator saw.
+    const summaryTooThin = summaryRaw.length < 25
+    if (!customerInsisted && (!triageDone || summaryTooThin)) {
+      return {
+        ok: false,
+        data: { needsTriage: true },
+        message:
+          'Ainda não há triagem suficiente para escalar. NÃO escale agora. Primeiro pergunte ao cliente, cordialmente e UMA pergunta por vez: (1) o que exatamente está acontecendo / o que ele precisa, (2) o contexto relevante (desde quando, o que já tentou, nº do pedido/cartão se houver). NÃO peça dados que você já tem da conta (nome da empresa, CNPJ já cadastrado etc.). Quando o cliente responder, chame escalar_humano de novo com triageDone=true e um summary detalhado com essas respostas reais. Se o cliente se recusar a dar detalhes ou insistir em falar com humano agora, chame com customerInsisted=true.',
+      }
+    }
+
     // Auto-classify from the reason; let the AI override priority if it passed one.
     const auto = classify(reason)
     const priority = (
@@ -806,6 +833,7 @@ export const toolExecutors: Record<
         subscriptionId: subRow?.id ?? null,
         status: firstCharge.status,
         value: String(firstCharge.value),
+        fullValue: String(value), // real monthly amount (dev charges fixed token)
         description: `Mensalidade Alelo - ${client.companyName}`,
         copyPaste: firstCharge.pixCopyPaste,
       })

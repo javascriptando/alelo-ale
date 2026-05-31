@@ -80,6 +80,15 @@ const STATUS_LABELS: Record<string, string> = {
   outro: 'Outro',
 }
 
+/**
+ * Short, stable, hash-like reference for a ticket — derived from its UUID, like
+ * a wallet address shorthand. e.g. "#A1B2C3D4". Deterministic (same ticket →
+ * same ref), no DB change needed.
+ */
+export function ticketRef(id: string): string {
+  return '#' + id.replace(/-/g, '').slice(0, 8).toUpperCase()
+}
+
 export function Badge({ value }: { value: string }) {
   return (
     <span

@@ -64,7 +64,8 @@ export interface PixChargeInput {
 export interface PixCharge {
   id: string
   status: string
-  value: number
+  value: number // amount actually charged (dev: fixed token value)
+  requestedValue: number // the real contracted value passed in
   invoiceUrl: string
   pixCopyPaste: string
   pixQrCodeBase64: string // raw base64 PNG (no data: prefix)
@@ -123,6 +124,7 @@ export async function createPixCharge(input: PixChargeInput): Promise<PixCharge>
     id: charge.id,
     status: charge.status,
     value: charge.value,
+    requestedValue: input.value, // real contracted amount (pre dev-override)
     invoiceUrl: charge.invoiceUrl,
     pixCopyPaste: qr.payload,
     pixQrCodeBase64: qr.encodedImage,

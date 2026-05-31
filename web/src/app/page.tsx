@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import type { Dashboard, Nps } from '@/lib/types'
 import { Badge, PageHeader } from '@/components/ui'
 import { NpsCard } from '@/components/nps-card'
+import { VolumeChart } from '@/components/volume-chart'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
   IconUsers,
@@ -21,14 +22,22 @@ import {
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
+// Selectable chart periods.
+const PERIODS = [
+  { value: 7, label: '7d' },
+  { value: 30, label: '30d' },
+  { value: 90, label: '90d' },
+]
+
 export default function DashboardPage() {
   const router = useRouter()
   const [dash, setDash] = useState<Dashboard | null>(null)
   const [nps, setNps] = useState<Nps | null>(null)
   const [wa, setWa] = useState<{ ready: boolean; qr: string | null; canManage: boolean } | null>(null)
+  const [days, setDays] = useState(7)
 
   const load = () => {
-    api.dashboard().then(setDash).catch(() => {})
+    api.dashboard(days).then(setDash).catch(() => {})
     api.nps().then(setNps).catch(() => {})
     api.whatsappStatus().then(setWa).catch(() => {})
   }
@@ -36,13 +45,13 @@ export default function DashboardPage() {
     load()
     const t = setInterval(load, 10000)
     return () => clearInterval(t)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days])
   useRealtime(() => load())
 
   const k = dash?.kpis
   // Scale bars by the busiest day's AI+human total (client msgs aren't charted —
   // the chart cruzes "quem ATENDEU": Alê vs operador).
-  const maxVol = Math.max(1, ...(dash?.volume.map((v) => v.ai + v.human) ?? [1]))
   const totalAi = dash?.volume.reduce((s, v) => s + v.ai, 0) ?? 0
   const totalHuman = dash?.volume.reduce((s, v) => s + v.human, 0) ?? 0
 
@@ -112,61 +121,38 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm lg:col-span-2">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold text-ink">Atendimentos · últimos 7 dias</h2>
+                <h2 className="text-sm font-semibold text-ink">
+                  Atendimentos · últimos {days} dias
+                </h2>
                 <p className="mt-0.5 text-xs text-ink-soft">{totalAi + totalHuman} mensagens enviadas</p>
               </div>
-              <div className="flex items-center gap-3 text-[11px] font-medium text-ink-soft">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-alelo" /> Alê {totalAi}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-indigo-400" /> Humano {totalHuman}
-                </span>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Period selector */}
+                <div className="flex rounded-lg border border-line bg-canvas p-0.5">
+                  {PERIODS.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setDays(p.value)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                        days === p.value ? 'bg-alelo text-white shadow-sm' : 'text-ink-soft hover:text-ink'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 text-[11px] font-medium text-ink-soft">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-alelo" /> Alê {totalAi}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-indigo-400" /> Humano {totalHuman}
+                  </span>
+                </div>
               </div>
             </div>
-            {/* Plot area with a faint baseline + max reference label. */}
-            <div className="relative flex h-44 items-end gap-2 border-b border-line sm:gap-4">
-              <span className="absolute -top-1 right-0 text-[10px] tabular-nums text-ink-soft/70">
-                {maxVol}
-              </span>
-              {(dash?.volume ?? []).map((v) => {
-                const tot = v.ai + v.human
-                // Stacked: Alê (brand green) on the bottom, Humano (indigo) on top.
-                const aiH = (v.ai / maxVol) * 100
-                const huH = (v.human / maxVol) * 100
-                const isToday = v.day === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-                return (
-                  <div key={v.day} className="group flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className="relative flex w-full max-w-[44px] flex-1 flex-col justify-end"
-                      title={`${v.ai} Alê · ${v.human} humano`}
-                    >
-                      {/* count on hover */}
-                      {tot > 0 && (
-                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold tabular-nums text-ink opacity-0 transition group-hover:opacity-100">
-                          {tot}
-                        </span>
-                      )}
-                      {tot === 0 ? (
-                        <div className="h-1.5 w-full rounded-full bg-line" />
-                      ) : (
-                        <div className="flex w-full flex-col justify-end overflow-hidden rounded-md">
-                          {v.human > 0 && (
-                            <div className="w-full bg-indigo-400 transition-all" style={{ height: `${Math.max(6, huH)}%` }} />
-                          )}
-                          {v.ai > 0 && (
-                            <div className="w-full bg-alelo transition-all" style={{ height: `${Math.max(6, aiH)}%` }} />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <span className={`text-[10px] capitalize ${isToday ? 'font-bold text-alelo' : 'text-ink-soft'}`}>
-                      {new Date(v.day + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+            {/* Nivo stacked bar chart — atendimentos por dia (Alê vs Humano). */}
+            <VolumeChart volume={dash?.volume ?? []} days={days} />
           </div>
 
           {/* NPS gauge */}

@@ -227,7 +227,10 @@ export default function InboxPage() {
                 </div>
               )}
 
-              <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
+              <div
+              className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-6"
+              style={{ backgroundColor: '#efeae2', backgroundImage: 'url(/chat-bg-whatsapp.png)', backgroundRepeat: 'repeat' }}
+            >
                 {messages.map((m) => (
                   <div key={m.id} className={`flex ${m.role === 'client' ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm sm:max-w-[70%] ${bubble(m.role)}`}>

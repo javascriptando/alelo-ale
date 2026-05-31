@@ -14,8 +14,8 @@ const schema = z.object({
 
   // ── ElevenLabs (respostas em áudio / TTS) ───────────────────
   ELEVENLABS_API_KEY: z.string().optional().default(''),
-  ELEVENLABS_VOICE_ID: z.string().optional().default('zNEsdgTUa3ndwKry8Xcq'),
-  ELEVENLABS_MODEL: z.string().optional().default('eleven_multilingual_v2'),
+  ELEVENLABS_VOICE_ID: z.string().optional().default('GM2UA3fbsIaLHcswCDX9'),
+  ELEVENLABS_MODEL: z.string().optional().default('eleven_v3'),
 
   // ── WhatsApp via Evolution API ──────────────────────────
   EVOLUTION_API_URL: z.string().url().default('http://localhost:8080'),
