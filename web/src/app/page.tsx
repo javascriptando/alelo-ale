@@ -110,47 +110,58 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Volume chart — atendimentos por dia, cruzando Alê (IA) vs Humano */}
           <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm lg:col-span-2">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-ink">Atendimentos · últimos 7 dias</h2>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-ink">Atendimentos · últimos 7 dias</h2>
+                <p className="mt-0.5 text-xs text-ink-soft">{totalAi + totalHuman} mensagens enviadas</p>
+              </div>
               <div className="flex items-center gap-3 text-[11px] font-medium text-ink-soft">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-alelo-lime" /> Alê {totalAi}
+                  <span className="h-2.5 w-2.5 rounded-sm bg-alelo" /> Alê {totalAi}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-alelo" /> Humano {totalHuman}
+                  <span className="h-2.5 w-2.5 rounded-sm bg-indigo-400" /> Humano {totalHuman}
                 </span>
               </div>
             </div>
-            <div className="flex h-40 items-end gap-2 sm:gap-3">
+            {/* Plot area with a faint baseline + max reference label. */}
+            <div className="relative flex h-44 items-end gap-2 border-b border-line sm:gap-4">
+              <span className="absolute -top-1 right-0 text-[10px] tabular-nums text-ink-soft/70">
+                {maxVol}
+              </span>
               {(dash?.volume ?? []).map((v) => {
                 const tot = v.ai + v.human
-                // Stacked bar: AI (lime) at the bottom, human (green) on top.
+                // Stacked: Alê (brand green) on the bottom, Humano (indigo) on top.
                 const aiH = (v.ai / maxVol) * 100
                 const huH = (v.human / maxVol) * 100
+                const isToday = v.day === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
                 return (
-                  <div key={v.day} className="flex flex-1 flex-col items-center gap-2">
+                  <div key={v.day} className="group flex flex-1 flex-col items-center gap-2">
                     <div
-                      className="flex w-full flex-1 flex-col justify-end"
-                      title={`${v.day}: ${v.ai} Alê · ${v.human} humano`}
+                      className="relative flex w-full max-w-[44px] flex-1 flex-col justify-end"
+                      title={`${v.ai} Alê · ${v.human} humano`}
                     >
+                      {/* count on hover */}
+                      {tot > 0 && (
+                        <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold tabular-nums text-ink opacity-0 transition group-hover:opacity-100">
+                          {tot}
+                        </span>
+                      )}
                       {tot === 0 ? (
-                        <div className="h-1 w-full rounded bg-line" />
+                        <div className="h-1.5 w-full rounded-full bg-line" />
                       ) : (
-                        <div className="flex w-full flex-col justify-end overflow-hidden rounded-t-lg">
+                        <div className="flex w-full flex-col justify-end overflow-hidden rounded-md">
                           {v.human > 0 && (
-                            <div className="w-full bg-alelo transition-all" style={{ height: `${Math.max(4, huH)}%` }} />
+                            <div className="w-full bg-indigo-400 transition-all" style={{ height: `${Math.max(6, huH)}%` }} />
                           )}
                           {v.ai > 0 && (
-                            <div
-                              className={`w-full bg-alelo-lime transition-all ${v.human > 0 ? '' : 'rounded-t-lg'}`}
-                              style={{ height: `${Math.max(4, aiH)}%` }}
-                            />
+                            <div className="w-full bg-alelo transition-all" style={{ height: `${Math.max(6, aiH)}%` }} />
                           )}
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-ink-soft">
-                      {new Date(v.day + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}
+                    <span className={`text-[10px] capitalize ${isToday ? 'font-bold text-alelo' : 'text-ink-soft'}`}>
+                      {new Date(v.day + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
                     </span>
                   </div>
                 )
@@ -180,11 +191,13 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {r.handlingMode === 'ai' && (
-                      <span className="rounded-full bg-alelo-lime-soft px-2 py-0.5 text-[10px] font-semibold text-alelo-dark">
+                      <span className="rounded-full bg-alelo-mint px-2 py-0.5 text-[10px] font-semibold text-alelo-dark">
                         Alê
                       </span>
                     )}
-                    <Badge value={r.priority} />
+                    {/* Only flag priority when it's an actual alert (high/urgent),
+                        to avoid badge/color noise on routine tickets. */}
+                    {(r.priority === 'high' || r.priority === 'urgent') && <Badge value={r.priority} />}
                     <Badge value={r.status} />
                   </div>
                 </button>
@@ -197,8 +210,8 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-ink-soft">Tickets por status</h2>
               <div className="space-y-2">
-                <StatusBar label="Abertos" value={k?.openTickets ?? 0} color="bg-amber-400" />
-                <StatusBar label="Pendentes" value={k?.pendingTickets ?? 0} color="bg-sky-400" />
+                <StatusBar label="Abertos" value={k?.openTickets ?? 0} color="bg-sky-400" />
+                <StatusBar label="Pendentes" value={k?.pendingTickets ?? 0} color="bg-amber-400" />
                 <StatusBar label="Resolvidos" value={k?.resolvedTickets ?? 0} color="bg-alelo" />
                 <StatusBar label="Fechados" value={k?.closedTickets ?? 0} color="bg-neutral-300" />
               </div>

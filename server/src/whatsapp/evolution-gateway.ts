@@ -5,6 +5,8 @@ import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
 import { jidToPhone, type InboundHandler, type WhatsAppGateway } from './gateway.js'
 import { toWhatsApp } from './format.js'
+import { transcribeAudio } from '../ai/openai.js'
+import { isElevenLabsConfigured, isSpeakable, textToSpeechBase64 } from '../integrations/elevenlabs.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -344,6 +346,15 @@ export class EvolutionGateway implements WhatsAppGateway {
 
   async sendText(phone: string, text: string): Promise<void> {
     const number = phone.replace(/\D/g, '')
+    // Voice-first: speak natural-language replies (codes/links stay as text).
+    if (isElevenLabsConfigured() && isSpeakable(text)) {
+      const audio = await textToSpeechBase64(text).catch(() => null)
+      if (audio) {
+        await this.sendAudioNote(number, audio)
+        return
+      }
+      // TTS failed → fall through to text so the message is never lost.
+    }
     const body = toWhatsApp(text)
     // Human touch: show "typing…" for a short, length-proportional time before
     // the message lands, so the bot doesn't feel instant/robotic.
@@ -352,6 +363,24 @@ export class EvolutionGateway implements WhatsAppGateway {
     await this.call(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
       method: 'POST',
       body: JSON.stringify({ number, text: body }),
+    })
+  }
+
+  /** Send a base64 MP3 as a WhatsApp voice note (Evolution transcodes to opus). */
+  private async sendAudioNote(number: string, base64Mp3: string): Promise<void> {
+    // Show "recording audio…" briefly for realism, then send.
+    try {
+      await this.call(`/chat/sendPresence/${env.EVOLUTION_INSTANCE}`, {
+        method: 'POST',
+        body: JSON.stringify({ number, presence: 'recording', delay: 1500 }),
+      })
+      await new Promise((r) => setTimeout(r, 1200))
+    } catch {
+      /* presence is cosmetic */
+    }
+    await this.call(`/message/sendWhatsAppAudio/${env.EVOLUTION_INSTANCE}`, {
+      method: 'POST',
+      body: JSON.stringify({ number, audio: base64Mp3, encoding: true }),
     })
   }
 
@@ -434,6 +463,19 @@ export class EvolutionGateway implements WhatsAppGateway {
     return Buffer.from(b64.replace(/^data:.*;base64,/, ''), 'base64').toString('utf8')
   }
 
+  /** Download a message's media (audio/image) via Evolution as raw bytes. */
+  private async fetchMediaBuffer(raw: Record<string, unknown>): Promise<Buffer | null> {
+    const resp = await this.call(`/chat/getBase64FromMediaMessage/${env.EVOLUTION_INSTANCE}`, {
+      method: 'POST',
+      body: JSON.stringify({ message: { key: raw.key }, convertToMp4: false }),
+    })
+    const b64 =
+      (resp?.base64 as string) ??
+      ((resp?.media as Record<string, unknown> | undefined)?.base64 as string | undefined)
+    if (!b64 || typeof b64 !== 'string') return null
+    return Buffer.from(b64.replace(/^data:.*;base64,/, ''), 'base64')
+  }
+
   /** Called by the Fastify webhook route for every Evolution event. */
   async handleWebhook(payload: Record<string, unknown>): Promise<void> {
     const event = String(payload.event ?? '').toLowerCase()
@@ -496,6 +538,29 @@ export class EvolutionGateway implements WhatsAppGateway {
       ((message?.extendedTextMessage as Record<string, unknown>)?.text as string) ??
       ((message?.imageMessage as Record<string, unknown>)?.caption as string) ??
       ''
+
+    // Voice note: download + transcribe (Whisper) so the AI treats it like text.
+    const audioMsg =
+      (message?.audioMessage as Record<string, unknown> | undefined) ??
+      (((message?.audioWithCaptionMessage as Record<string, unknown>)?.message as
+        | Record<string, unknown>
+        | undefined)?.audioMessage as Record<string, unknown> | undefined)
+    if (audioMsg && !text.trim()) {
+      const buf = await this.fetchMediaBuffer(raw).catch((err) => {
+        logger.warn({ err: (err as Error).message }, 'Evolution: falha ao baixar áudio')
+        return null
+      })
+      if (buf) {
+        const transcript = await transcribeAudio(buf, 'audio.ogg').catch(() => null)
+        if (transcript) {
+          text = transcript
+          logger.info({ chars: transcript.length }, 'Áudio do cliente transcrito')
+        } else {
+          text =
+            'Recebi seu áudio, mas não consegui entender. Pode repetir ou escrever, por favor?'
+        }
+      }
+    }
 
     // Document attachment (e.g. a CSV with the employee list): download it and
     // inline its text so the AI's cadastrar_beneficiarios flow can parse it.

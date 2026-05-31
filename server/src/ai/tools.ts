@@ -371,7 +371,7 @@ export const toolExecutors: Record<
         await notifyImage(
           ctx.clientId,
           pix.pixQrCodeBase64,
-          `*PIX pendente - ${brl(Number(c.value))}*\n${c.description ?? 'Benefício Alelo'}\nPague pelo QR Code acima ou pelo código abaixo. 👇`,
+          `*PIX pendente - ${brl(Number(c.value))}*\n${c.description ?? 'Benefício Alelo'}\nPague pelo QR Code acima ou pelo código abaixo.`,
         )
         await notifyText(ctx.clientId, pix.pixCopyPaste)
       }
@@ -813,7 +813,7 @@ export const toolExecutors: Record<
         await notifyImage(
           ctx.clientId,
           firstCharge.pixQrCodeBase64,
-          `*Mensalidade Alelo - ${brl(value)}/mês*\nAtivei sua cobrança mensal automática. Pague a 1ª via abaixo; todo mês eu te envio o novo PIX por aqui. 👇`,
+          `*Mensalidade Alelo - ${brl(value)}/mês*\nAtivei sua cobrança mensal automática. Pague a 1ª via abaixo; todo mês eu te envio o novo PIX por aqui.`,
         )
         await notifyText(ctx.clientId, firstCharge.pixCopyPaste)
       } catch (err) {

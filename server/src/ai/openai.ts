@@ -1,8 +1,28 @@
-import OpenAI from 'openai'
+import OpenAI, { toFile } from 'openai'
 import { env } from '../config/env.js'
 import { logger } from '../config/logger.js'
 
 export const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
+
+/**
+ * Transcribe a voice note (client sent audio on WhatsApp) to text via Whisper,
+ * so the AI flow treats it exactly like a typed message. `audio` is the raw
+ * bytes (ogg/opus/mp3). Returns the transcript or null on failure.
+ */
+export async function transcribeAudio(audio: Buffer, filename = 'audio.ogg'): Promise<string | null> {
+  try {
+    const file = await toFile(audio, filename)
+    const r = await openai.audio.transcriptions.create({
+      file,
+      model: 'whisper-1',
+      language: 'pt',
+    })
+    return r.text?.trim() || null
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, 'Whisper transcrição falhou')
+    return null
+  }
+}
 
 // Preference order — newest/most capable first. The app picks the first one
 // that actually exists on the account (queried at runtime), so it self-adapts

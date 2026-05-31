@@ -29,24 +29,33 @@ export function StatCard({
   )
 }
 
-// Soft, light-theme badge styles (bg tint + readable text).
+// Semantic palette (light theme). Rule of thumb:
+//  • Brand GREEN = identity/positive only (Alê, resolvido, comercial).
+//  • Status uses ONE conventional color each, no overlap:
+//      aberto → azul (em andamento) · pendente/aguardando → âmbar (espera)
+//      resolvido → verde · fechado → cinza.
+//  • Priority escalates: baixa cinza · média slate · alta laranja · urgente vermelho.
+//  • Alertas (vermelho) reservados para urgente/reclamação.
 const STATUS_STYLES: Record<string, string> = {
-  bot: 'bg-sky-100 text-sky-700',
+  // conversation handling
+  bot: 'bg-alelo-mint text-alelo-dark',
   waiting_human: 'bg-amber-100 text-amber-700',
-  human: 'bg-alelo-mint text-alelo',
+  human: 'bg-indigo-100 text-indigo-700',
+  // ticket status
+  open: 'bg-sky-100 text-sky-700',
+  pending: 'bg-amber-100 text-amber-700',
+  resolved: 'bg-alelo-mint text-alelo-dark',
   closed: 'bg-neutral-100 text-neutral-500',
-  open: 'bg-amber-100 text-amber-700',
-  pending: 'bg-sky-100 text-sky-700',
-  resolved: 'bg-alelo-mint text-alelo',
-  urgent: 'bg-red-100 text-red-700',
-  high: 'bg-orange-100 text-orange-700',
-  medium: 'bg-yellow-100 text-yellow-700',
+  // priority
   low: 'bg-neutral-100 text-neutral-500',
-  // ticket categories
+  medium: 'bg-slate-100 text-slate-600',
+  high: 'bg-orange-100 text-orange-700',
+  urgent: 'bg-red-100 text-red-700',
+  // ticket categories (neutral/cool — never brand-yellow)
   suporte: 'bg-sky-100 text-sky-700',
-  financeiro: 'bg-violet-100 text-violet-700',
+  financeiro: 'bg-indigo-100 text-indigo-700',
   cartao: 'bg-cyan-100 text-cyan-700',
-  comercial: 'bg-alelo-mint text-alelo',
+  comercial: 'bg-alelo-mint text-alelo-dark',
   reclamacao: 'bg-red-100 text-red-700',
   outro: 'bg-neutral-100 text-neutral-500',
 }

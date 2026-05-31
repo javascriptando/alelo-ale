@@ -121,7 +121,7 @@ export async function sendChargePix(
   await notifyImage(
     clientId,
     pix.pixQrCodeBase64,
-    `*Mensalidade Alelo - ${brl(value)}*${venc}\nPague pelo QR Code acima ou pelo código abaixo. 👇`,
+    `*Mensalidade Alelo - ${brl(value)}*${venc}\nPague pelo QR Code acima ou pelo código abaixo.`,
   ).catch(() => {})
   await notifyText(clientId, pix.pixCopyPaste).catch(() => {})
   return true

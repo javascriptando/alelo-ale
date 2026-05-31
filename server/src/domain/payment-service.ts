@@ -91,7 +91,7 @@ export async function createAndSendPix(
     await notifyImage(
       clientId,
       charge.pixQrCodeBase64,
-      `*Pagamento PIX - ${brl(charge.value)}*\nEscaneie o QR Code acima ou use o código abaixo. 👇`,
+      `*Pagamento PIX - ${brl(charge.value)}*\nEscaneie o QR Code acima ou use o código abaixo.`,
     )
     await notifyText(clientId, charge.pixCopyPaste)
     await notifyText(
@@ -176,7 +176,7 @@ export async function pollPendingSignatures(): Promise<number> {
       await advanceStage(c.clientId, 'active')
       await notifyText(
         c.clientId,
-        '✅ *Contrato assinado!* O próximo passo é o pagamento — já estou gerando seu PIX. 👇',
+        '✅ *Contrato assinado!* O próximo passo é o pagamento — já estou gerando seu PIX.',
       )
       await createAndSendPix(c.clientId).catch((err) =>
         logger.error({ err }, 'Falha ao gerar PIX pós-assinatura (polling)'),
